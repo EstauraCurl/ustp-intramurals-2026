@@ -526,33 +526,52 @@
     container.innerHTML = html;
   }
 
-  function copyGCRoster() {
+    function copyGCRoster() {
     if (liveRoster.length === 0) {
       showToast('⚠️ No signups to format yet.');
       return;
     }
-    let text = "📢 USTP INTRAMURALS 2026 - PARTICIPANT ROSTER\n\n";
-    liveRoster.forEach((s, idx) => {
-      text += `${idx + 1}. ${s.fullName} - ${s.section} [${s.teamPref}]\n`;
-      s.events.forEach(ev => {
-        text += `   • ${ev.category}: ${ev.eventName}\n`;
-      });
-      text += "\n";
+
+    // Group participants by Event
+    const eventMap = {};
+
+    liveRoster.forEach(s => {
+      if (s.events && Array.isArray(s.events)) {
+        s.events.forEach(ev => {
+          const eventTitle = ev.eventName || 'General Event';
+          if (!eventMap[eventTitle]) {
+            eventMap[eventTitle] = [];
+          }
+          const teamInfo = s.teamPref && !s.teamPref.includes('Flexible') ? ` (${s.teamPref})` : '';
+          eventMap[eventTitle].push(`${s.fullName} - ${s.section}${teamInfo}`);
+        });
+      }
     });
 
+    let text = "📢 USTP INTRAMURALS 2026 - PARTICIPANT ROSTER\n\n";
+    for (const [eventTitle, players] of Object.entries(eventMap)) {
+      text += `[${eventTitle}]\n`;
+      players.forEach(p => {
+        text += `- ${p}\n`;
+      });
+      text += "\n";
+    }
+    text = text.trim();
+
     navigator.clipboard.writeText(text).then(() => {
-      showToast('📋 Copied formatted roster to clipboard!');
+      showToast('📋 Copied GC roster formatted by event!');
     }).catch(() => {
-      // Fallback copy
+      // Mobile fallback copy
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      showToast('📋 Copied formatted roster to clipboard!');
+      showToast('📋 Copied GC roster formatted by event!');
     });
-  }
+    }
+  
 
   // ==========================================
   // 5. MANAGER SECURITY & CSV EXPORTS
