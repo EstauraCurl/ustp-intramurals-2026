@@ -532,7 +532,22 @@
       return;
     }
 
-    // Group participants by Event
+    // Events with 2 teams (Team A and Team B)
+    const twoTeamKeywords = [
+      "dancesport latin - men", "dancesport latin - women",
+      "dancesport standard - men", "dancesport standard - women",
+      "mobile legends - men", "call of duty",
+      "basketball", "volleyball", "sepak takraw",
+      "badminton", "table tennis", "pickleball", "chess", "dart",
+      "debate", "quiz bee", "dagliang talumpati", "extemporaneous speech",
+      "charcoal painting", "poster making", "spoken poetry", "photo contest"
+    ];
+
+    const soloOrDeptKeywords = [
+      "vocal solo", "mr. ustp ambassador", "ms. ustp ambassador",
+      "fiesta games", "banner raising", "film on stage", "amazing race"
+    ];
+
     const eventMap = {};
 
     liveRoster.forEach(s => {
@@ -540,39 +555,118 @@
         s.events.forEach(ev => {
           const eventTitle = ev.eventName || 'General Event';
           if (!eventMap[eventTitle]) {
-            eventMap[eventTitle] = [];
+            eventMap[eventTitle] = {
+              maxSlots: parseInt(ev.maxSlots, 10) || 10,
+              teamA: [],
+              teamB: [],
+              flexible: []
+            };
           }
-          const teamInfo = s.teamPref && !s.teamPref.includes('Flexible') ? ` (${s.teamPref})` : '';
-          eventMap[eventTitle].push(`${s.fullName} - ${s.section}${teamInfo}`);
+
+          const playerStr = `${s.fullName} - ${s.section}`;
+          const pref = (s.teamPref || '').toLowerCase();
+
+          if (pref.includes('team b') && !pref.includes('flexible')) {
+            eventMap[eventTitle].teamB.push(playerStr);
+          } else if (pref.includes('team a') && !pref.includes('flexible')) {
+            eventMap[eventTitle].teamA.push(playerStr);
+          } else {
+            eventMap[eventTitle].flexible.push(playerStr);
+          }
         });
       }
     });
 
-    let text = "📢 USTP INTRAMURALS 2026 - PARTICIPANT ROSTER\n\n";
-    for (const [eventTitle, players] of Object.entries(eventMap)) {
-      text += `[${eventTitle}]\n`;
-      players.forEach(p => {
-        text += `- ${p}\n`;
-      });
-      text += "\n";
+    // Auto-distribute flexible signups into Team A and Team B
+    for (const [title, data] of Object.entries(eventMap)) {
+      const lower = title.toLowerCase();
+      const isTwoTeam = twoTeamKeywords.some(k => lower.includes(k));
+
+      if (data.flexible.length > 0) {
+        data.flexible.forEach(player => {
+          if (isTwoTeam) {
+            if (data.teamA.length < data.maxSlots) {
+              data.teamA.push(player);
+            } else {
+              data.teamB.push(player);
+            }
+          } else {
+            data.teamA.push(player);
+          }
+        });
+      }
     }
+
+    // Build the GC formatted string
+    let text = "📢 USTP INTRAMURALS 2026 - PARTICIPANT ROSTER\n\n";
+
+    for (const [eventTitle, data] of Object.entries(eventMap)) {
+      const lower = eventTitle.toLowerCase();
+      const isTwoTeam = twoTeamKeywords.some(k => lower.includes(k));
+      const isSoloOrDept = soloOrDeptKeywords.some(k => lower.includes(k));
+
+      text += `[${eventTitle}]\n`;
+
+      if (isSoloOrDept) {
+        const allPlayers = [...data.teamA, ...data.teamB];
+        if (allPlayers.length > 0) {
+          allPlayers.forEach((p, idx) => {
+            text += `${idx + 1}. ${p}\n`;
+          });
+        } else {
+          text += `(No participants yet)\n`;
+        }
+      } else if (isTwoTeam) {
+        // Team A
+        text += `Team A\n`;
+        if (data.teamA.length > 0) {
+          data.teamA.forEach((p, idx) => {
+            text += `${idx + 1}. ${p}\n`;
+          });
+        } else {
+          text += `(No participants yet)\n`;
+        }
+
+        // Team B
+        text += `Team B\n`;
+        if (data.teamB.length > 0) {
+          data.teamB.forEach((p, idx) => {
+            text += `${idx + 1}. ${p}\n`;
+          });
+        } else {
+          text += `(No participants yet)\n`;
+        }
+      } else {
+        // Single team events (Team A)
+        text += `Team A\n`;
+        if (data.teamA.length > 0) {
+          data.teamA.forEach((p, idx) => {
+            text += `${idx + 1}. ${p}\n`;
+          });
+        } else {
+          text += `(No participants yet)\n`;
+        }
+      }
+
+      text += `\n`;
+    }
+
     text = text.trim();
 
     navigator.clipboard.writeText(text).then(() => {
-      showToast('📋 Copied GC roster formatted by event!');
+      showToast('📋 Copied GC roster formatted by Team A & B!');
     }).catch(() => {
-      // Mobile fallback copy
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      showToast('📋 Copied GC roster formatted by event!');
+      showToast('📋 Copied GC roster formatted by Team A & B!');
     });
     }
-  
 
+    
   // ==========================================
   // 5. MANAGER SECURITY & CSV EXPORTS
   // ==========================================
