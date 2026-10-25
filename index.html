@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>USTP Intramurals 2026 - Live Registration</title>
+  
+  <!-- Firebase SDKs (Runs entirely in browser) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --navy: #0f172a;
+      --card-bg: #ffffff;
+      --bg: #f8fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --gold: #f59e0b;
+      --green: #10b981;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 90px; }
+    .header { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 20px 16px; border-bottom: 3px solid var(--gold); }
+    .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .badge { background: rgba(245, 158, 11, 0.2); color: var(--gold); border: 1px solid var(--gold); padding: 4px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+    .conn-status { font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 999px; background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .conn-offline { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    h1 { font-size: 20px; font-weight: 800; }
+    .sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    
+    .nav-tabs { display: flex; background: #ffffff; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 50; }
+    .tab-btn { flex: 1; padding: 12px 8px; border: none; background: none; font-size: 13px; font-weight: 700; color: var(--text-muted); border-bottom: 3px solid transparent; cursor: pointer; text-align: center; }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: #f0f7ff; }
+
+    .container { max-width: 680px; margin: 0 auto; padding: 14px; }
+    .card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 14px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card-title { font-size: 15px; font-weight: 800; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 4px; color: #334155; }
+    input[type="text"], input[type="password"], select { width: 100%; padding: 11px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: #fff; }
+    input:focus, select:focus { outline: none; border-color: var(--primary); }
+
+    .cat-box { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; background: #fff; }
+    .cat-head { background: #f1f5f9; padding: 10px 12px; font-weight: 700; font-size: 13px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .cat-tools button { background: white; border: 1px solid var(--border); font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; cursor: pointer; margin-left: 4px; }
+    .cat-body { padding: 8px 12px; display: block; }
+    .checkbox-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f8fafc; cursor: pointer; }
+    .checkbox-row:last-child { border-bottom: none; }
+    .checkbox-row input { width: 18px; height: 18px; margin-right: 10px; accent-color: var(--primary); }
+    .checkbox-row span.label-text { font-size: 13px; font-weight: 500; flex: 1; }
+    .checkbox-row span.slot-pill { font-size: 11px; font-weight: 700; color: var(--text-muted); background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+    .closed-row { opacity: 0.45; pointer-events: none; }
+
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center; box-shadow: 0 -3px 10px rgba(0,0,0,0.08); z-index: 90; }
+    .btn { padding: 11px 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; text-align: center; }
+    .btn-primary { background: var(--primary); color: white; flex: 1; }
+    .btn-primary:active { background: var(--primary-dark); }
+    .btn-manager { background: #0f172a; color: white; padding: 10px 14px; font-size: 12px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+    .btn-export { background: #059669; color: white; width: 100%; margin-bottom: 8px; }
+    .btn-export-alt { background: #0284c7; color: white; width: 100%; margin-bottom: 8px; }
+    .btn-danger { background: #dc2626; color: white; width: 100%; }
+
+    .roster-item { padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: white; display: flex; justify-content: space-between; align-items: center; }
+    .roster-info h4 { font-size: 13px; font-weight: 700; }
+    .roster-info p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; padding: 16px; }
+    .modal-box { background: white; border-radius: 12px; max-width: 480px; width: 100%; padding: 20px; max-height: 90vh; overflow-y: auto; }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .close-btn { background: none; border: none; font-size: 20px; font-weight: 700; cursor: pointer; color: #64748b; }
+
+    #toast { display: none; position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #0f172a; color: white; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 2000; box-shadow: 0 4px 14px rgba(0,0,0,0.25); text-align: center; max-width: 90%; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="container" style="padding:0;">
+    <div class="header-top">
+      <span class="badge">USTP Intramurals 2026</span>
+      <span id="connIndicator" class="conn-status">⚪ Checking Cloud...</span>
+    </div>
+    <h1>📢 Complete Participant Registration</h1>
+    <p class="sub">Select multiple events across categories. Live real-time roster sync.</p>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="nav-tabs">
+  <button class="tab-btn active" onclick="switchTab('tab-register', this)">📝 Register</button>
+  <button class="tab-btn" onclick="switchTab('tab-roster', this)">👥 Live Roster (<span id="totalCount">0</span>)</button>
+  <button class="tab-btn" onclick="switchTab('tab-export', this)">🔒 Manager Export</button>
+</div>
+
+<div class="container">
+  
+  <!-- TAB 1: REGISTRATION -->
+  <div id="tab-register">
+    <div class="card">
+      <div class="card-title">👤 Student Information</div>
+      <div class="form-group">
+        <label>Full Name (Last Name, First Name M.I.) *</label>
+        <input type="text" id="regName" placeholder="e.g. Estaura, Curl G.">
+      </div>
+      <div class="form-group">
+        <label>Course, Year & Section *</label>
+        <input type="text" id="regSection" placeholder="e.g. BSIT - 2B">
+      </div>
+      <div class="form-group">
+        <label>Division / Team Preference</label>
+        <select id="regTeam">
+          <option value="Flexible (Team A or B)">Either Team A or Team B (Flexible)</option>
+          <option value="Team A">Team A</option>
+          <option value="Team B">Team B</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>🏆 Select Events (Multiple Allowed)</span>
+        <span style="font-size:11px; color:var(--text-muted); font-weight:normal;" id="selectedCounter">0 selected</span>
+      </div>
+
+      <!-- CATEGORY 1: DANCE -->
+      <div class="cat-box">
+        <div class="cat-head">
+          <span>💃 1. DANCE</span>
+          <div class="cat-tools">
+            <button onclick="toggleGroup('cat-dance', true)">Select All</button>
+            <button onclick="toggleGroup('cat-dance', false)">Clear</button>
+          </div>
+        </div>
+        <div class="cat-body" id="cat-dance">
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="1. Dance|Indigenous Dance|10"><span class="label-text">Indigenous Dance</span><span class="slot-pill">10p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="1. Dance|Contemporary Dance|10"><span class="label-text">Contemporary Dance</span><span class="slot-pill">10p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="1. Dance|Street Hip-Hop Dance|10"><span class="label-text">Street Hip-Hop Dance</span><span class="slot-pill">10p</span></label>
+          <div class="checkbox-row closed-row"><input type="checkbox" disabled><span class="label-text">Cheerdance Competition (CLOSED)</span><span class="slot-pill" style="color:var(--red);">CLOSED</span></div>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="1. Dance|Dancesport Latin - Men|2"><span class="label-text">Dancesport Latin – Men</span><span class="slot-pill">2p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="1. Dance|Dancesport Latin - Women|2"><span class="label-text">Dancesport Latin – Women</span><span class="slot-pill">2p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="1. Dance|Dancesport Standard - Men|10"><span class="label-text">Dancesport Standard – Men</span><span class="slot-pill">10p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="1. Dance|Dancesport Standard - Women|10"><span class="label-text">Dancesport Standard – Women</span><span class="slot-pill">10p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="1. Dance|Dancesport Latin Third Kind|2"><span class="label-text">Dancesport Latin – Third Kind</span><span class="slot-pill">2p</span></label>
+        </div>
+      </div>
+
+      <!-- CATEGORY 2: ESPORTS -->
+      <div class="cat-box">
+        <div class="cat-head">
+          <span>🎮 2. ESPORTS</span>
+          <div class="cat-tools">
+            <button onclick="toggleGroup('cat-esports', true)">Select All</button>
+            <button onclick="toggleGroup('cat-esports', false)">Clear</button>
+          </div>
+        </div>
+        <div class="cat-body" id="cat-esports">
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="2. Esports|Mobile Legends - Men/Open|6"><span class="label-text">Mobile Legends – Men/Open</span><span class="slot-pill">6p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="2. Esports|Mobile Legends - Women|6"><span class="label-text">Mobile Legends – Women</span><span class="slot-pill">6p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="2. Esports|Call of Duty - Mixed|6"><span class="label-text">Call of Duty – Mixed</span><span class="slot-pill">6p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="2. Esports|Dota 2 - Mixed|6"><span class="label-text">Dota 2 – Mixed</span><span class="slot-pill">6p</span></label>
+        </div>
+      </div>
+
+      <!-- CATEGORY 3: SPORTS -->
+      <div class="cat-box">
+        <div class="cat-head">
+          <span>🏆 3. SPORTS</span>
+          <div class="cat-tools">
+            <button onclick="toggleGroup('cat-sports', true)">Select All</button>
+            <button onclick="toggleGroup('cat-sports', false)">Clear</button>
+          </div>
+        </div>
+        <div class="cat-body" id="cat-sports">
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Basketball - Men|10"><span class="label-text">Basketball – Men</span><span class="slot-pill">10p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Basketball - Women|10"><span class="label-text">Basketball – Women</span><span class="slot-pill">10p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Volleyball - Men|10"><span class="label-text">Volleyball – Men</span><span class="slot-pill">10p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Volleyball - Women|10"><span class="label-text">Volleyball – Women</span><span class="slot-pill">10p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Sepak Takraw - Men|6"><span class="label-text">Sepak Takraw – Men</span><span class="slot-pill">6p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Badminton - Men|5"><span class="label-text">Badminton – Men</span><span class="slot-pill">5p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Badminton - Women|5"><span class="label-text">Badminton – Women</span><span class="slot-pill">5p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Badminton - Mixed|5"><span class="label-text">Badminton – Mixed</span><span class="slot-pill">5p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Table Tennis - Men|5"><span class="label-text">Table Tennis – Men</span><span class="slot-pill">5p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Table Tennis - Women|5"><span class="label-text">Table Tennis – Women</span><span class="slot-pill">5p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Pickleball - Men|2"><span class="label-text">Pickleball – Men</span><span class="slot-pill">2p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Pickleball - Women|2"><span class="label-text">Pickleball – Women</span><span class="slot-pill">2p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Chess - Men|5"><span class="label-text">Chess – Men</span><span class="slot-pill">5p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Chess - Women|5"><span class="label-text">Chess – Women</span><span class="slot-pill">5p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Dart - Men/Open|5"><span class="label-text">Dart – Men/Open</span><span class="slot-pill">5p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="3. Sports|Dart - Women|5"><span class="label-text">Dart – Women</span><span class="slot-pill">5p/team</span></label>
+        </div>
+      </div>
+
+      <!-- CATEGORY 4: VOCALS -->
+      <div class="cat-box">
+        <div class="cat-head">
+          <span>🎤 4. VOCALS & BANDS</span>
+          <div class="cat-tools">
+            <button onclick="toggleGroup('cat-vocals', true)">Select All</button>
+            <button onclick="toggleGroup('cat-vocals', false)">Clear</button>
+          </div>
+        </div>
+        <div class="cat-body" id="cat-vocals">
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="4. Vocals|Vocal Solo|1"><span class="label-text">Vocal Solo</span><span class="slot-pill">1p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="4. Vocals|Vocal Duet|2"><span class="label-text">Vocal Duet</span><span class="slot-pill">2p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="4. Vocals|Live Band Competition|7"><span class="label-text">Live Band Competition</span><span class="slot-pill">7p</span></label>
+        </div>
+      </div>
+
+      <!-- CATEGORY 5: ACADEMIC -->
+      <div class="cat-box">
+        <div class="cat-head">
+          <span>📚 5. ACADEMIC</span>
+          <div class="cat-tools">
+            <button onclick="toggleGroup('cat-acad', true)">Select All</button>
+            <button onclick="toggleGroup('cat-acad', false)">Clear</button>
+          </div>
+        </div>
+        <div class="cat-body" id="cat-acad">
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="5. Academic|Debate|6"><span class="label-text">Debate</span><span class="slot-pill">6p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="5. Academic|Quiz Bee / Quiz Bowl|6"><span class="label-text">Quiz Bee / Quiz Bowl</span><span class="slot-pill">6p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="5. Academic|Dagliang Talumpati|2"><span class="label-text">Dagliang Talumpati</span><span class="slot-pill">2p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="5. Academic|Extemporaneous Speech|2"><span class="label-text">Extemporaneous Speech</span><span class="slot-pill">2p/team</span></label>
+        </div>
+      </div>
+
+      <!-- CATEGORY 6: ARTS -->
+      <div class="cat-box">
+        <div class="cat-head">
+          <span>🎨 6. ARTS</span>
+          <div class="cat-tools">
+            <button onclick="toggleGroup('cat-arts', true)">Select All</button>
+            <button onclick="toggleGroup('cat-arts', false)">Clear</button>
+          </div>
+        </div>
+        <div class="cat-body" id="cat-arts">
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="6. Arts|Charcoal Painting / Rendering|2"><span class="label-text">Charcoal Painting / Rendering</span><span class="slot-pill">2p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="6. Arts|Poster Making|2"><span class="label-text">Poster Making / On-the-Spot</span><span class="slot-pill">2p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="6. Arts|In-Situ Painting|2"><span class="label-text">In-Situ Painting</span><span class="slot-pill">2p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="6. Arts|Spoken Poetry|2"><span class="label-text">Spoken Poetry</span><span class="slot-pill">2p/team</span></label>
+        </div>
+      </div>
+      
+      <!-- CATEGORY 7: MEDIA -->
+      <div class="cat-box">
+        <div class="cat-head">
+          <span>🎬 7. PHOTO & DRAMA</span>
+          <div class="cat-tools">
+            <button onclick="toggleGroup('cat-media', true)">Select All</button>
+            <button onclick="toggleGroup('cat-media', false)">Clear</button>
+          </div>
+        </div>
+        <div class="cat-body" id="cat-media">
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="7. Media|Photo Contest|2"><span class="label-text">Photo Contest</span><span class="slot-pill">2p/team</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="7. Media|Short & Sweet Play|7"><span class="label-text">Short & Sweet Play</span><span class="slot-pill">7p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="7. Media|Radio Drama|7"><span class="label-text">Radio Drama</span><span class="slot-pill">7p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="7. Media|Live Newscasting|8"><span class="label-text">Live Broadcasting / Newscasting</span><span class="slot-pill">8p</span></label>
+        </div>
+      </div>
+
+      <!-- CATEGORY 8: SPECIAL -->
+      <div class="cat-box">
+        <div class="cat-head">
+          <span>🎉 8. SPECIAL EVENTS</span>
+          <div class="cat-tools">
+            <button onclick="toggleGroup('cat-special', true)">Select All</button>
+            <button onclick="toggleGroup('cat-special', false)">Clear</button>
+          </div>
+        </div>
+        <div class="cat-body" id="cat-special">
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="8. Special|Fiesta Games|Open"><span class="label-text">Fiesta Games</span><span class="slot-pill">Open</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="8. Special|Mr. USTP Ambassador|1"><span class="label-text">Mr. USTP Ambassador 2026</span><span class="slot-pill">1p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="8. Special|Ms. USTP Ambassador|1"><span class="label-text">Ms. USTP Ambassador 2026</span><span class="slot-pill">1p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="8. Special|Film on Stage|30"><span class="label-text">Film on Stage</span><span class="slot-pill">30p</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="8. Special|Banner Raising|Open"><span class="label-text">Banner Raising / Designing</span><span class="slot-pill">Open</span></label>
+          <label class="checkbox-row"><input type="checkbox" name="ev" value="8. Special|Amazing Race|10"><span class="label-text">Amazing Race</span><span class="slot-pill">10p</span></label>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 2: LIVE ROSTER -->
+  <div id="tab-roster" class="hidden">
+    <div class="card">
+      <div class="card-title">
+        <span>📋 Live Participant List</span>
+        <button class="btn-manager" onclick="copyGCRoster()">📋 Copy GC Text</button>
+      </div>
+      <div id="rosterList">
+        <p style="text-align:center; color:var(--text-muted); padding:20px;">No registered participants yet.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: MANAGER EXPORT -->
+  <div id="tab-export" class="hidden">
+    <div class="card">
+      <div class="card-title">🔐 Manager Verification</div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Only the authorized tournament manager (<strong id="displayMgrEmail">kurtestaura12@gmail.com</strong>) can download registration files.</p>
+      
+      <div id="managerLockBox">
+        <div class="form-group">
+          <label>Manager Email Address *</label>
+          <input type="text" id="mgrEmailInput" placeholder="kurtestaura12@gmail.com">
+        </div>
+        <div class="form-group">
+          <label>Security PIN *</label>
+          <input type="password" id="mgrPinInput" placeholder="Enter PIN (Default: ustp2026)">
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="unlockManager()">Verify & Unlock Exports</button>
+      </div>
+
+      <div id="managerActionBox" class="hidden">
+        <div style="background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; padding:10px; border-radius:8px; font-size:13px; font-weight:700; margin-bottom:14px;">
+          ✅ Manager Authenticated: <span id="authEmailLabel">kurtestaura12@gmail.com</span>
+        </div>
+
+        <button class="btn btn-export" onclick="exportOrganizedCSV()">📥 Download Organized Categorized CSV</button>
+        <button class="btn btn-export-alt" onclick="exportFlatCSV()">📊 Download Standard Flat CSV</button>
+        
+        <hr style="margin:16px 0; border:0; border-top:1px solid var(--border);">
+
+        <div class="card-title" style="font-size:13px;">⚙️ Tournament Database Settings</div>
+        <div class="form-group">
+          <label>Firebase Realtime Database URL</label>
+          <input type="text" id="firebaseDbUrlInput" placeholder="https://your-project-default-rtdb.firebaseio.com/">
+        </div>
+        <button class="btn-manager" style="width:100%; margin-bottom:10px;" onclick="saveDbUrl()">Save Database Link</button>
+
+        <div class="card-title" style="font-size:13px; margin-top:10px;">🔑 Change Manager Access</div>
+        <div class="form-group">
+          <label>Transfer to New Email</label>
+          <input type="text" id="newMgrEmail" placeholder="newmanager@gmail.com">
+        </div>
+        <div class="form-group">
+          <label>Change Security PIN</label>
+          <input type="password" id="newMgrPin" placeholder="New PIN (min 4 characters)">
+        </div>
+        <button class="btn-manager" style="width:100%; margin-bottom:14px;" onclick="updateManagerCreds()">Update Manager Credentials</button>
+
+        <button class="btn btn-danger" onclick="clearLiveRoster()">⚠️ Clear All Registrations</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- FLOATING BOTTOM ACTION BAR FOR SUBMIT -->
+<div class="bottom-bar" id="regBottomBar">
+  <button class="btn btn-primary" id="btnSubmit" onclick="submitRegistration()">Submit Registration</button>
+</div>
+
+<script>
+  // ==========================================
+  // 1. CONFIGURATION & STATE
+  // ==========================================
+  let FIREBASE_DB_URL = localStorage.getItem("ustp_db_url") || "PASTE_YOUR_FIREBASE_URL_HERE";
+  let managerEmail = localStorage.getItem("ustp_mgr_email") || "kurtestaura12@gmail.com";
+  let managerPin = localStorage.getItem("ustp_mgr_pin") || "ustp2026";
+  let isManagerAuthorized = false;
+
+  let liveRoster = []; // Clean state: 0 students
+  let dbRef = null;
+
+  // Initialize UI
+  document.getElementById('displayMgrEmail').innerText = managerEmail;
+  document.getElementById('mgrEmailInput').value = managerEmail;
+  if(FIREBASE_DB_URL !== "PASTE_YOUR_FIREBASE_URL_HERE") {
+    document.getElementById('firebaseDbUrlInput').value = FIREBASE_DB_URL;
+  }
+
+  // ==========================================
+  // 2. FIREBASE REALTIME CONNECTION
+  // ==========================================
+  function initFirebase() {
+    const indicator = document.getElementById('connIndicator');
+    
+    if (!FIREBASE_DB_URL || FIREBASE_DB_URL === "PASTE_YOUR_FIREBASE_URL_HERE") {
+      indicator.innerText = "🟡 Local Mode (Add Database Link)";
+      indicator.className = "conn-status";
+      // Load from local storage fallback
+      const saved = localStorage.getItem("ustp_local_roster");
+      if (saved) liveRoster = JSON.parse(saved);
+      renderRoster();
+      return;
+    }
+
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp({ databaseURL: FIREBASE_DB_URL });
+      }
+      const db = firebase.database();
+      dbRef = db.ref("intramurals_2026/signups");
+
+      // Listen for real-time additions/removals
+      dbRef.on("value", (snapshot) => {
+        const data = snapshot.val();
+        liveRoster = [];
+        if (data) {
+          Object.keys(data).forEach(key => {
+            liveRoster.push({ id: key, ...data[key] });
+          });
+        }
+        indicator.innerText = "🟢 Live Cloud Connected";
+        indicator.className = "conn-status";
+        renderRoster();
+      }, (error) => {
+        indicator.innerText = "❌ Database Permission Error";
+        indicator.className = "conn-status conn-offline";
+      });
+    } catch (e) {
+      indicator.innerText = "❌ Connection Failed";
+      indicator.className = "conn-status conn-offline";
+    }
+  }
+
+  initFirebase();
+
+  // ==========================================
+  // 3. REGISTRATION HANDLER
+  // ==========================================
+  function submitRegistration() {
+    const name = document.getElementById('regName').value.trim();
+    const section = document.getElementById('regSection').value.trim();
+    const team = document.getElementById('regTeam').value;
+    const checked = document.querySelectorAll('input[name="ev"]:checked');
+
+    if (!name || !section) {
+      showToast('⚠️ Please enter your Full Name and Section.');
+      return;
+    }
+    if (checked.length === 0) {
+      showToast('⚠️ Please select at least one event.');
+      return;
+    }
+
+    const selectedEvents = [];
+    checked.forEach(cb => {
+      const parts = cb.value.split('|');
+      selectedEvents.push({
+        category: parts[0],
+        eventName: parts[1],
+        maxSlots: parts[2]
+      });
+    });
+
+    const studentRecord = {
+      fullName: name,
+      section: section,
+      teamPref: team,
+      events: selectedEvents,
+      timestamp: new Date().toISOString()
+    };
+
+    const submitBtn = document.getElementById('btnSubmit');
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Saving Registration...";
+
+    if (dbRef) {
+      // Save directly to Firebase Cloud
+      dbRef.push(studentRecord).then(() => {
+        onSuccessRegistration();
+      }).catch(err => {
+        showToast('❌ Cloud save error: ' + err.message);
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Submit Registration";
+      });
+    } else {
+      // Local storage fallback
+      studentRecord.id = 'loc_' + Date.now();
+      liveRoster.push(studentRecord);
+      localStorage.setItem("ustp_local_roster", JSON.stringify(liveRoster));
+      renderRoster();
+      onSuccessRegistration();
+    }
+  }
+
+  function onSuccessRegistration() {
+    showToast('✅ Registration Saved to Live Roster!');
+    document.getElementById('regName').value = '';
+    document.getElementById('regSection').value = '';
+    document.querySelectorAll('input[name="ev"]:checked').forEach(cb => cb.checked = false);
+    updateSelectedCount();
+
+    const submitBtn = document.getElementById('btnSubmit');
+    submitBtn.disabled = false;
+    submitBtn.innerText = "Submit Registration";
+  }
+
+  // ==========================================
+  // 4. ROSTER RENDERING & GC TEXT
+  // ==========================================
+  function renderRoster() {
+    document.getElementById('totalCount').innerText = liveRoster.length;
+    const container = document.getElementById('rosterList');
+
+    if (liveRoster.length === 0) {
+      container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:20px;">No registered participants yet. 0 slots filled.</p>';
+      return;
+    }
+
+    let html = '';
+    liveRoster.forEach((item, index) => {
+      const eventPills = item.events.map(e => `<span style="display:inline-block; background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin:2px;">${e.eventName}</span>`).join(' ');
+      
+      html += `
+        <div class="roster-item">
+          <div class="roster-info">
+            <h4>${index + 1}. ${item.fullName} (${item.section})</h4>
+            <p style="margin-bottom:4px;">Team: <strong>${item.teamPref}</strong></p>
+            <div>${eventPills}</div>
+          </div>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+  }
+
+  function copyGCRoster() {
+    if (liveRoster.length === 0) {
+      showToast('⚠️ No signups to format yet.');
+      return;
+    }
+    let text = "📢 USTP INTRAMURALS 2026 - PARTICIPANT ROSTER\n\n";
+    liveRoster.forEach((s, idx) => {
+      text += `${idx + 1}. ${s.fullName} - ${s.section} [${s.teamPref}]\n`;
+      s.events.forEach(ev => {
+        text += `   • ${ev.category}: ${ev.eventName}\n`;
+      });
+      text += "\n";
+    });
+
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Copied formatted roster to clipboard!');
+    }).catch(() => {
+      // Fallback copy
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('📋 Copied formatted roster to clipboard!');
+    });
+  }
+
+  // ==========================================
+  // 5. MANAGER SECURITY & CSV EXPORTS
+  // ==========================================
+  function unlockManager() {
+    const email = document.getElementById('mgrEmailInput').value.trim().toLowerCase();
+    const pin = document.getElementById('mgrPinInput').value.trim();
+
+    if (email === managerEmail.toLowerCase() && pin === managerPin) {
+      isManagerAuthorized = true;
+      document.getElementById('managerLockBox').classList.add('hidden');
+      document.getElementById('managerActionBox').classList.remove('hidden');
+      document.getElementById('authEmailLabel').innerText = managerEmail;
+      showToast('👑 Manager Verified: Kurtestaura12');
+    } else {
+      showToast('❌ Invalid Manager Email or Security PIN.');
+    }
+  }
+
+  function exportOrganizedCSV() {
+    if (!isManagerAuthorized) {
+      showToast('🔒 Verification required to export.');
+      return;
+    }
+    if (liveRoster.length === 0) {
+      showToast('⚠️ Roster is currently empty.');
+      return;
+    }
+
+    const categories = [
+      "1. Dance", "2. Esports", "3. Sports", "4. Vocals",
+      "5. Academic", "6. Arts", "7. Media", "8. Special"
+    ];
+
+    let csv = "\uFEFF"; // UTF-8 BOM
+    csv += "========================================================================\r\n";
+    csv += "USTP INTRAMURALS 2026 - COMPLETE OFFICIAL PARTICIPANT REGISTRATION\r\n";
+    csv += `Tournament Manager: ${managerEmail}\r\n`;
+    csv += `Export Timestamp: ${new Date().toLocaleString()}\r\n`;
+    csv += "========================================================================\r\n\r\n";
+
+    categories.forEach(cat => {
+      csv += "------------------------------------------------------------------------\r\n";
+      csv += `CATEGORY: ${cat.toUpperCase()}\r\n`;
+      csv += "------------------------------------------------------------------------\r\n";
+      csv += "Category,Event Name,Slot #,Full Name,Year & Section,Team Division,Timestamp\r\n";
+
+      let entriesFound = false;
+      let slotIndex = 1;
+
+      liveRoster.forEach(student => {
+        student.events.forEach(ev => {
+          if (ev.category.startsWith(cat)) {
+            entriesFound = true;
+            csv += `"${ev.category}","${ev.eventName}","Slot ${slotIndex}","${student.fullName}","${student.section}","${student.teamPref}","${student.timestamp}"\r\n`;
+            slotIndex++;
+          }
+        });
+      });
+
+      if (!entriesFound) {
+        csv += `"${cat}","No Registrations Recorded","--","[VACANT]","--","--","--"\r\n`;
+      }
+      csv += "\r\n";
+    });
+
+    downloadCSVFile(csv, "USTP_Intramurals_2026_Organized_Roster.csv");
+  }
+
+  function exportFlatCSV() {
+    if (!isManagerAuthorized) return;
+    if (liveRoster.length === 0) {
+      showToast('⚠️ Roster is currently empty.');
+      return;
+    }
+
+    let csv = "\uFEFFCategory,Event,Full Name,Year & Section,Preferred Team,Timestamp\r\n";
+    liveRoster.forEach(student => {
+      student.events.forEach(ev => {
+        csv += `"${ev.category}","${ev.eventName}","${student.fullName}","${student.section}","${student.teamPref}","${student.timestamp}"\r\n`;
+      });
+    });
+
+    downloadCSVFile(csv, "USTP_Intramurals_2026_Flat_Master.csv");
+  }
+
+  function downloadCSVFile(content, fileName) {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('📥 CSV Downloaded successfully!');
+  }
+
+  function saveDbUrl() {
+    const url = document.getElementById('firebaseDbUrlInput').value.trim();
+    if (!url) {
+      showToast('⚠️ Please enter a valid URL.');
+      return;
+    }
+    localStorage.setItem("ustp_db_url", url);
+    FIREBASE_DB_URL = url;
+    showToast('💾 Database link saved. Re-initializing...');
+    setTimeout(() => { location.reload(); }, 1500);
+  }
+
+  function updateManagerCreds() {
+    const newEmail = document.getElementById('newMgrEmail').value.trim();
+    const newPin = document.getElementById('newMgrPin').value.trim();
+
+    if (newEmail) {
+      managerEmail = newEmail;
+      localStorage.setItem("ustp_mgr_email", newEmail);
+      document.getElementById('displayMgrEmail').innerText = newEmail;
+    }
+    if (newPin) {
+      if (newPin.length < 4) {
+        showToast('⚠️ PIN must be at least 4 digits.');
+        return;
+      }
+      managerPin = newPin;
+      localStorage.setItem("ustp_mgr_pin", newPin);
+    }
+    showToast('✅ Manager Credentials Updated!');
+  }
+
+  function clearLiveRoster() {
+    if (!confirm('⚠️ Are you sure you want to completely erase the tournament roster?')) return;
+    
+    if (dbRef) {
+      dbRef.remove().then(() => {
+        showToast('🗑️ Cloud roster cleared.');
+      });
+    } else {
+      liveRoster = [];
+      localStorage.removeItem("ustp_local_roster");
+      renderRoster();
+      showToast('🗑️ Local roster cleared.');
+    }
+  }
+
+  // ==========================================
+  // 6. UI HELPERS & SELECT ALL
+  // ==========================================
+  function toggleGroup(containerId, check) {
+    const container = document.getElementById(containerId);
+    container.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb => {
+      cb.checked = check;
+    });
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    const count = document.querySelectorAll('input[name="ev"]:checked').length;
+    document.getElementById('selectedCounter').innerText = `${count} selected`;
+  }
+
+  document.querySelectorAll('input[name="ev"]').forEach(cb => {
+    cb.addEventListener('change', updateSelectedCount);
+  });
+
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    document.getElementById('tab-register').classList.add('hidden');
+    document.getElementById('tab-roster').classList.add('hidden');
+    document.getElementById('tab-export').classList.add('hidden');
+
+    document.getElementById(tabId).classList.remove('hidden');
+
+    const bBar = document.getElementById('regBottomBar');
+    if (tabId === 'tab-register') {
+      bBar.style.display = 'flex';
+    } else {
+      bBar.style.display = 'none';
+    }
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.innerText = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
+  }
+</script>
+</body>
+</html>
+
